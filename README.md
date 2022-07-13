@@ -1,4 +1,7 @@
 # WNBA_visualisation
+To see the visualisation: https://aatili.github.io/WNBA_visualisation/index.html
+
+
 Displaying some WNBA stats and aspects, visualisation using JavaScript and D3.
 
 Thanks to adambrikman for the map: 
