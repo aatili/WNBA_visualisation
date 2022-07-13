@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+body{
+	background-color: #ECF1F4;
+    width:900px;
+    margin:30px ;
+	font-family: Tahoma;
+    font-size: 12px;
+}
+path {  stroke: #fff; }
+path:hover {  opacity:0.9; }
+rect:hover {  fill: #ff8080; }
+.axis {  font: 10px sans-serif; }
+.legend tr{    border-bottom:1px solid grey; }
+.legend tr:first-child{    border-top:1px solid grey; }
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {  display: none; }
+.legend{
+    margin-bottom:76px;
+    display:inline-block;
+    border-collapse: collapse;
+    border-spacing: 0px;
+}
+.legend td{
+    padding:4px 5px;
+    vertical-align:bottom;
+}
+.legendFGA, .legendPerc{
+    align:right;
+    width:50px;
+}
+
+</style>
+<body>
+<h4>Average Team Points per Match - with 3Pointers percentage </h4>
+<div id='dashboard'>
+</div>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+
+
+<script>
+
+
+
+function dashboard(id, fData){
+    var barColor = '#b8a67d';
+    function segColor(c){ return {three_point:"#edb442", two_point:"#979399"}[c]; }
+    fData.forEach(function(d){d.total=d.PTS_W, d.FGA;});
+  
+
+//######################### histoGram ####################################
+
+
+function histoGram(fD){
+	var hG={},hGDim = {t: 30, r: 0, b: 30, l: 0};
+        hGDim.w = 500 - hGDim.l - hGDim.r, 
+        hGDim.h = 300 - hGDim.t - hGDim.b;
+            
+/*create svg for histogram*/
+var hGsvg = d3.select(id).append("svg")
+    .attr("width", hGDim.w + hGDim.l + hGDim.r)
+    .attr("height", hGDim.h + hGDim.t + hGDim.b).append("g")
+    .attr("transform", "translate(" + hGDim.l + "," + hGDim.t + ")");
+
+/* x-axis mapping.*/
+var x = d3.scale.ordinal().rangeRoundBands([0, hGDim.w], 0.15)
+        .domain(fD.map(function(d) { return d[0]; }));
+
+/* Add x-axis*/
+hGsvg.append("g").attr("class", "x axis")
+     .attr("transform", "translate(0," + hGDim.h + ")")
+     .call(d3.svg.axis().scale(x).orient("bottom"))
+     .selectAll("text")
+	 .style("text-anchor", "end")
+     .attr("dx", "-.8em")
+     .attr("dy", ".15em")
+	 .attr("transform", "rotate(-65)");
+
+/*y-axis map*/
+var y = d3.scale.linear().range([hGDim.h, 0])
+          .domain([0, d3.max(fD, function(d) { return d[1]; })]);
+		  
+		  
+/*Add y-axis to the histogram svg*/
+hGsvg.append("g").attr("class", "y axis")
+     //.attr("transform", "translate(0," + hGDim.h + ")")
+     .call(d3.svg.axis().scale(y).orient("left"))
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Points");
+
+/*Create bars*/
+var bars = hGsvg.selectAll(".bar").data(fD).enter()
+                .append("g").attr("class", "bar")
+
+        
+/*rect*/
+bars.append("rect")
+    .attr("x", function(d) { return x(d[0]); })
+    .attr("y", function(d) { return y(d[1]); })
+    .attr("width", x.rangeBand()/1.25)
+    .attr("height", function(d) { return hGDim.h - y(d[1]); })
+    .attr('fill',barColor)
+    .on("mouseover",mouseover)
+    .on("mouseout",mouseout);
+            
+/* Points above the rectangles*/
+bars.append("text").text(function(d){ return d3.format(",")(d[1])})
+    .attr("x", function(d) { return x(d[0])+x.rangeBand()/2; })
+    .attr("y", function(d) { return y(d[1])-5; })
+    .attr("text-anchor", "middle")
+	.style("font-size", "8px");
+        
+function mouseover(d){ 
+var st = fData.filter(function(s){ return s.year == d[0];})[0],
+nD = d3.keys(st.FGA).map(function(s){ return {type:s, FGA:st.FGA[s]};});
+               
+/*call update functions of pie-chart and legend*/
+pC.update(nD);
+leg.update(nD);
+        }
+        
+function mouseout(d){   
+/* reset the pie-chart and legend*/    
+pC.update(tF);
+leg.update(tF);
+        }
+        
+/*update the bars by pie-chart*/
+hG.update = function(nD, color){
+        y.domain([0, d3.max(nD, function(d) { return d[1]; })]);
+            
+var bars = hGsvg.selectAll(".bar").data(nD);
+            
+/*transition the height and color of rectangles*/
+bars.select("rect").transition().duration(500)
+    .attr("y", function(d) {return y(d[1]); })
+    .attr("height", function(d) { return hGDim.h - y(d[1]); })
+    .attr("fill", color);
+
+/*transition the points labels location and change value*/
+bars.select("text").transition().duration(500)
+    .text(function(d){ return d3.format(",")(d[1])})
+    .attr("y", function(d) {return y(d[1])-5; });            
+    }        
+    return hG;
+}
+    
+
+//######################### Pie Chart ####################################	
+	
+
+function pieChart(pD){
+    var pC ={},    pieDim ={w:150, h: 150};
+    pieDim.r = Math.min(pieDim.w, pieDim.h) / 2;
+                
+/*create svg for pie chart*/
+var piesvg = d3.select(id).append("svg")
+    .attr("width", pieDim.w).attr("height", pieDim.h).append("g")
+    .attr("transform", "translate("+pieDim.w/2+","+pieDim.h/2+")");
+        
+/*pie slices*/
+var arc = d3.svg.arc().outerRadius(pieDim.r - 10).innerRadius(0);
+
+/*pie slice angles*/
+var pie = d3.layout.pie().sort(null).value(function(d) { return d.FGA; });
+
+/*Draw the pie slices*/
+piesvg.selectAll("path").data(pie(pD)).enter().append("path").attr("d", arc)
+      .each(function(d) { this._current = d; })
+      .style("fill", function(d) { return segColor(d.data.type); })
+       .on("mouseover",mouseover).on("mouseout",mouseout);
+
+/*update pie-chart by histogram*/
+pC.update = function(nD){
+        piesvg.selectAll("path").data(pie(nD)).transition().duration(500)
+              .attrTween("d", arcTween);
+}        
+
+function mouseover(d){
+/*call the update function of histogram with new data*/
+    hG.update(fData.map(function(v){ 
+					return [v.year,v.FGA[d.data.type]];}),segColor(d.data.type));
+
+}
+
+function mouseout(d){
+/*call the update function of histogram with all data*/
+        hG.update(fData.map(function(v){
+					return [v.year,v.total];}), barColor);
+}
+
+/*Animating the pie-slice*/
+function arcTween(a) {
+    var i = d3.interpolate(this._current, a);
+        this._current = i(0);
+            return function(t) { return arc(i(t));    };
+}    
+return pC;
+}
+  
+
+//######################### legend ####################################  
+
+
+function legend(lD){
+var leg = {};
+            
+/*create table for legend*/
+var legend = d3.select(id).append("table").attr('class','legend');
+        
+/*create one row per segment*/
+var tr = legend.append("tbody").selectAll("tr").data(lD).enter().append("tr");
+            
+tr.append("td").append("svg").attr("width", '16').attr("height", '16').append("rect")
+  .attr("width", '16').attr("height", '16')
+  .attr("fill",function(d){ return segColor(d.type); });
+            
+tr.append("td").text(function(d){ return d.type;});
+
+tr.append("td").attr("class",'legendFreq')
+   .text(function(d){ return d3.format(",")(d.FGA);});
+
+tr.append("td").attr("class",'legendPerc')
+   .text(function(d){ return getLegend(d,lD);});
+
+/*Utility function to be used to update the legend*/
+leg.update = function(nD){
+var l = legend.select("tbody").selectAll("tr").data(nD);
+l.select(".legendFreq").text(function(d){ return d3.format(",")(d.FGA);});
+l.select(".legendPerc").text(function(d){ return getLegend(d,nD);});        
+}
+        
+function getLegend(d,aD){ // Utility function to compute percentage.
+            return d3.format("%")(d.FGA/d3.sum(aD.map(function(v){ return v.FGA; })));
+}
+
+return leg;
+}
+    
+/*calculate total points by segment for all year*/
+var tF = ['three_point','two_point'].map(function(d){ 
+      return {type:d, FGA: parseFloat(d3.sum(fData.map(function(t){ return t.FGA[d];}))).toFixed(2)}; 
+});    
+    
+/*calculate total points by year for all segment*/
+var sF = fData.map(function(d){return [d.year,d.PTS_W];});
+
+var hG = histoGram(sF), // create the histogram.
+    pC = pieChart(tF), // create the pie-chart.
+    leg= legend(tF);  // create the legend.
+}
+</script>
+<script>
+
+var data_set=
+[
+ {year: 2001,PTS_W: 65.7,FGA:{three_point: 12.9,two_point: 45.6}},
+ {year: 2002,PTS_W: 67.6,FGA:{three_point: 13.1,two_point: 45.4}},
+ {year: 2003,PTS_W: 68.1,FGA:{three_point: 13.6,two_point: 46.2}},
+ {year: 2004,PTS_W: 67.1,FGA:{three_point: 12.2,two_point: 46.1}},
+ {year: 2005,PTS_W: 67.3,FGA:{three_point: 11.9,two_point: 46}},
+ {year: 2006,PTS_W: 74.9,FGA:{three_point: 15,two_point: 49.2}},
+ {year: 2007,PTS_W: 76.3,FGA:{three_point: 15.8,two_point: 49.8}},
+ {year: 2008,PTS_W: 76.3,FGA:{three_point: 15.6,two_point: 49.6}},
+ {year: 2009,PTS_W: 78.1,FGA:{three_point: 16.2,two_point: 49.8}},
+ {year: 2010,PTS_W: 80.3,FGA:{three_point: 16.8,two_point: 49.6}},
+ {year: 2011,PTS_W: 77.3,FGA:{three_point: 15.8,two_point: 49.9}},
+ {year: 2012,PTS_W: 77.5,FGA:{three_point: 17.7,two_point: 48.9}},
+ {year: 2013,PTS_W: 75.6,FGA:{three_point: 14.4,two_point: 52}},
+ {year: 2014,PTS_W: 77.1,FGA:{three_point: 14.1,two_point: 52.3}},
+ {year: 2015,PTS_W: 75.1,FGA:{three_point: 14.8,two_point: 50.6}},
+ {year: 2016,PTS_W: 81.9,FGA:{three_point: 16.1,two_point: 51.4}},
+ {year: 2017,PTS_W: 81.5,FGA:{three_point: 17.5,two_point: 50.5}},
+ {year: 2018,PTS_W: 82.4,FGA:{three_point: 19.4,two_point: 49.1}},
+ {year: 2019,PTS_W: 78.7,FGA:{three_point: 20,two_point: 48.5}},
+ {year: 2020,PTS_W: 83.1,FGA:{three_point: 21.2,two_point: 47}},
+ {year: 2021,PTS_W: 80.7,FGA:{three_point: 21.2,two_point: 47.2}},
+ {year: 2022,PTS_W: 81.5,FGA:{three_point: 22.7,two_point: 45.3}}];
+ 
+dashboard('#dashboard',data_set);
+</script>

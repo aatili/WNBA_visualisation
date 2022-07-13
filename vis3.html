@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px georgia;
+}
+
+svg {
+  padding: 10px 0 0 10px;
+}
+
+.arc {
+  stroke: #fff;
+}
+
+</style>
+<body>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>
+<script>
+
+var radius = 90,
+    padding = 10;
+
+var color = d3.scale.ordinal()
+    .range(["orange", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+
+var arc = d3.svg.arc()
+    .outerRadius(radius)
+    .innerRadius(radius - 35);
+
+
+var pie = d3.layout.pie()
+    .sort(null)
+    .value(function(d) { return d.population; });
+	
+var data_ready = pie(d3.entries(data))
+var data = [
+	{ "State": "Atlanta",
+	  "WNBA": 1423579,
+	  "NBA": 122989387
+	},
+	{ "State": "Los Angeles",
+	  "WNBA": 1308883,
+	  "NBA": 149259427
+	},
+	{ "State": "Pheonix",
+	  "WNBA": 1417701,
+	  "NBA": 128354550
+	},
+	{ "State": "Dallas",
+	  "WNBA": 1069348,
+	  "NBA": 118367125
+	},
+	{ "State": "New York",
+	  "WNBA": 1375901,
+	  "NBA": 109049157
+	},
+	{ "State": "Washington",
+	  "WNBA": 1302794,
+	  "NBA": 122834531
+	}
+]
+
+
+  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "State"; }));
+
+  data.forEach(function(d) {
+    d.ages = color.domain().map(function(name) {
+      return {name: name, population: +d[name]};
+    });
+  });
+
+  var legend = d3.select("body").append("svg")
+      .attr("class", "legend")
+      .attr("width", radius * 2)
+      .attr("height", radius * 2)
+    .selectAll("g")
+      .data(color.domain().slice().reverse())
+    .enter().append("g")
+      .attr("transform", function(d, i) { return "translate(0," + i * 30 + ")"; });
+
+  legend.append("rect")
+      .attr("width", 25)
+      .attr("height", 25)
+      .style("fill", color);
+
+  legend.append("text")
+      .attr("x", 28)
+      .attr("y", 12)
+      .attr("dy", ".35em")
+      .text(function(d) { return d; });
+
+  var svg = d3.select("body").selectAll(".pie")
+      .data(data)
+    .enter().append("svg")
+      .attr("class", "pie")
+      .attr("width", radius * 2)
+      .attr("height", radius * 2)
+    .append("g")
+      .attr("transform", "translate(" + radius + "," + radius + ")");
+
+  svg.selectAll(".arc")
+      .data(function(d) { return pie(d.ages); })
+    .enter().append("path")
+      .attr("class", "arc")
+      .attr("d", arc)
+      .style("fill", function(d) { return color(d.data.name); });
+	  
+
+  svg.append("text")
+      .attr("dy", ".35em")
+	  .attr("font-size","15px")
+      .style("text-anchor", "middle")
+      .text(function(d) { return d.State; });
+	  
+	  
+  svg.append("text")
+      .attr("transform", function(d) { return "translate(" + -30 + "," + radius/1.25 + ")"; })
+      .attr("dy", ".35em")
+	  .attr("font-size","15px")
+	  .style('fill', "#E1DEDD")
+      .text(function(d) { return "$ " + parseFloat(d.NBA/1000000).toFixed(2)+" M"; });
+	  
+  svg.append("text")
+      .attr("transform", function(d) { return "translate(" + -35+ "," + (-radius/2.25) + ")"; })
+      .attr("dy", ".35em")
+	  .attr("font-size","15px")
+      .text(function(d) { return "$ " + parseFloat(d.WNBA/1000000).toFixed(2)+" M"; });
+
+
+</script>
